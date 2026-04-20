@@ -1,13 +1,16 @@
 /**
  * Composable para gestión del historial de simulaciones.
- * Guarda los últimos resultados para la vista de Estadísticas.
+ * Extiende el historial en memoria con persistencia en Firebase Firestore.
+ * Si Firebase no está configurado, funciona solo en memoria (sin cambios al comportamiento previo).
  */
 import { ref, computed } from 'vue'
 import type { SimulationResult, OccupancyStatus } from '@/models/occupancyModel'
 import { statusLabel } from '@/models/occupancyModel'
+import { firebaseService } from '@/services/firebase'
 
 export interface HistoryEntry {
   id: number
+  firestoreId?: string   // ID en Firestore (si se guardó)
   timestamp: string
   horizon: string
   patients: number
@@ -17,23 +20,30 @@ export interface HistoryEntry {
   peakOccupancy: number
   status: OccupancyStatus
   result: SimulationResult
+  /** Nombre del hospital seleccionado en el mapa (opcional) */
+  hospitalName?: string
 }
 
 const history = ref<HistoryEntry[]>([])
 let nextId = 1
 
 export function useHistory() {
-  function addEntry(
+  /**
+   * Agrega una entrada al historial local y opcionalmente la persiste en Firestore.
+   */
+  async function addEntry(
     patients: number,
     admissions: number,
     discharges: number,
     horizon: number,
-    result: SimulationResult
+    result: SimulationResult,
+    capacity: number = 200,
+    hospitalName?: string,
+    hospitalId?: string,
   ) {
-    const horizonLabel =
-      horizon === 0 ? 'Ahora' : `${horizon}h`
+    const horizonLabel = horizon === 0 ? 'Ahora' : `${horizon}h`
 
-    history.value.unshift({
+    const entry: HistoryEntry = {
       id: nextId++,
       timestamp: new Date().toLocaleString('es-MX'),
       horizon: horizonLabel,
@@ -44,10 +54,61 @@ export function useHistory() {
       peakOccupancy: result.peakOccupancy,
       status: result.status,
       result,
-    })
+      hospitalName,
+    }
 
-    // Mantener máximo 50 entradas
+    history.value.unshift(entry)
     if (history.value.length > 50) history.value.pop()
+
+    // Persistencia en Firestore (asíncrona, sin bloquear la UI)
+    if (firebaseService.isAvailable) {
+      const firestoreId = await firebaseService.saveSimulation(
+        { patients, admissions, discharges, capacity, horizon },
+        result,
+        hospitalName,
+        hospitalId,
+      )
+      if (firestoreId) entry.firestoreId = firestoreId
+    }
+  }
+
+  /**
+   * Carga el historial desde Firestore y lo fusiona con el historial en memoria.
+   * Solo se llama si Firebase está disponible.
+   */
+  async function loadFromFirestore() {
+    if (!firebaseService.isAvailable) return
+    const remote = await firebaseService.fetchHistory(50)
+
+    // Convertir entradas de Firestore al formato local
+    const converted: HistoryEntry[] = remote.map((fe, idx) => ({
+      id: -(idx + 1),              // IDs negativos para diferenciarlos de los locales
+      firestoreId: fe.id,
+      timestamp: new Date(fe.timestampISO).toLocaleString('es-MX'),
+      horizon: fe.input.horizon === 0 ? 'Ahora' : `${fe.input.horizon}h`,
+      patients: fe.input.patients,
+      admissions: fe.input.admissions,
+      discharges: fe.input.discharges,
+      finalOccupancy: fe.result.finalOccupancy,
+      peakOccupancy: fe.result.peakOccupancy,
+      status: fe.result.status,
+      hospitalName: fe.hospitalName,
+      result: {
+        points: [],   // No almacenamos puntos de gráfica en Firestore para ahorrar espacio
+        finalOccupancy: fe.result.finalOccupancy,
+        peakOccupancy: fe.result.peakOccupancy,
+        peakTime: fe.result.peakTime,
+        timeConstant: fe.result.timeConstant,
+        status: fe.result.status,
+        alert: fe.result.alert,
+      },
+    }))
+
+    // Merge: evitar duplicados por firestoreId
+    const existingFirestoreIds = new Set(history.value.map(e => e.firestoreId).filter(Boolean))
+    const newEntries = converted.filter(e => !existingFirestoreIds.has(e.firestoreId))
+    history.value.push(...newEntries)
+    history.value.sort((a, b) => b.id - a.id)
   }
 
   const averageOccupancy = computed(() => {
@@ -80,5 +141,15 @@ export function useHistory() {
 
   function clearHistory() { history.value = [] }
 
-  return { history, addEntry, averageOccupancy, statusDistribution, trend, clearHistory, getStatusLabel }
+  return {
+    history,
+    addEntry,
+    loadFromFirestore,
+    averageOccupancy,
+    statusDistribution,
+    trend,
+    clearHistory,
+    getStatusLabel,
+    isFirebaseEnabled: firebaseService.isAvailable,
+  }
 }
