@@ -1,16 +1,20 @@
 /**
  * Composable para gestión del historial de simulaciones.
- * Extiende el historial en memoria con persistencia en Firebase Firestore.
- * Si Firebase no está configurado, funciona solo en memoria (sin cambios al comportamiento previo).
+ * Incluye paginación, borrado individual y persistencia en Firestore.
  */
 import { ref, computed } from 'vue'
 import type { SimulationResult, OccupancyStatus } from '@/models/occupancyModel'
 import { statusLabel } from '@/models/occupancyModel'
 import { firebaseService } from '@/services/firebase'
+import {
+  getFirestore,
+  doc,
+  deleteDoc,
+} from 'firebase/firestore'
 
 export interface HistoryEntry {
   id: number
-  firestoreId?: string   // ID en Firestore (si se guardó)
+  firestoreId?: string
   timestamp: string
   horizon: string
   patients: number
@@ -20,17 +24,16 @@ export interface HistoryEntry {
   peakOccupancy: number
   status: OccupancyStatus
   result: SimulationResult
-  /** Nombre del hospital seleccionado en el mapa (opcional) */
   hospitalName?: string
 }
 
 const history = ref<HistoryEntry[]>([])
 let nextId = 1
 
+// Paginación global
+export const PAGE_SIZE = 10
+
 export function useHistory() {
-  /**
-   * Agrega una entrada al historial local y opcionalmente la persiste en Firestore.
-   */
   async function addEntry(
     patients: number,
     admissions: number,
@@ -58,9 +61,8 @@ export function useHistory() {
     }
 
     history.value.unshift(entry)
-    if (history.value.length > 50) history.value.pop()
+    if (history.value.length > 200) history.value.pop()
 
-    // Persistencia en Firestore (asíncrona, sin bloquear la UI)
     if (firebaseService.isAvailable) {
       const firestoreId = await firebaseService.saveSimulation(
         { patients, admissions, discharges, capacity, horizon },
@@ -73,16 +75,33 @@ export function useHistory() {
   }
 
   /**
-   * Carga el historial desde Firestore y lo fusiona con el historial en memoria.
-   * Solo se llama si Firebase está disponible.
+   * Borra una entrada del historial local y de Firestore si está disponible.
    */
+  async function deleteEntry(entryId: number): Promise<void> {
+    const idx = history.value.findIndex(e => e.id === entryId)
+    if (idx === -1) return
+
+    const entry = history.value[idx]
+
+    // Borrar de Firestore si tiene ID
+    if (entry.firestoreId && firebaseService.isAvailable) {
+      try {
+        const db = getFirestore()
+        await deleteDoc(doc(db, 'simulaciones', entry.firestoreId))
+      } catch (e) {
+        console.error('[Firebase] Error al borrar simulación:', e)
+      }
+    }
+
+    history.value.splice(idx, 1)
+  }
+
   async function loadFromFirestore() {
     if (!firebaseService.isAvailable) return
-    const remote = await firebaseService.fetchHistory(50)
+    const remote = await firebaseService.fetchHistory(200)
 
-    // Convertir entradas de Firestore al formato local
     const converted: HistoryEntry[] = remote.map((fe, idx) => ({
-      id: -(idx + 1),              // IDs negativos para diferenciarlos de los locales
+      id: -(idx + 1),
       firestoreId: fe.id,
       timestamp: new Date(fe.timestampISO).toLocaleString('es-MX'),
       horizon: fe.input.horizon === 0 ? 'Ahora' : `${fe.input.horizon}h`,
@@ -94,7 +113,7 @@ export function useHistory() {
       status: fe.result.status,
       hospitalName: fe.hospitalName,
       result: {
-        points: [],   // No almacenamos puntos de gráfica en Firestore para ahorrar espacio
+        points: [],
         finalOccupancy: fe.result.finalOccupancy,
         peakOccupancy: fe.result.peakOccupancy,
         peakTime: fe.result.peakTime,
@@ -104,23 +123,21 @@ export function useHistory() {
       },
     }))
 
-    // Merge: evitar duplicados por firestoreId
     const existingFirestoreIds = new Set(history.value.map(e => e.firestoreId).filter(Boolean))
     const newEntries = converted.filter(e => !existingFirestoreIds.has(e.firestoreId))
     history.value.push(...newEntries)
     history.value.sort((a, b) => b.id - a.id)
   }
 
+  // ── Computed helpers ──────────────────────────────────────
+
   const averageOccupancy = computed(() => {
     if (!history.value.length) return 0
-    const sum = history.value.reduce((a, e) => a + e.finalOccupancy, 0)
-    return sum / history.value.length
+    return history.value.reduce((a, e) => a + e.finalOccupancy, 0) / history.value.length
   })
 
   const statusDistribution = computed(() => {
-    const dist: Record<OccupancyStatus, number> = {
-      normal: 0, alto: 0, saturado: 0, colapso: 0,
-    }
+    const dist: Record<OccupancyStatus, number> = { normal: 0, alto: 0, saturado: 0, colapso: 0 }
     history.value.forEach(e => dist[e.status]++)
     return dist
   })
@@ -144,6 +161,7 @@ export function useHistory() {
   return {
     history,
     addEntry,
+    deleteEntry,
     loadFromFirestore,
     averageOccupancy,
     statusDistribution,

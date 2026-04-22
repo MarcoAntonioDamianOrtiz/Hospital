@@ -1,5 +1,38 @@
 <template>
   <div class="stats-page">
+    <!-- Confirm delete modal -->
+    <Transition name="fade">
+      <div v-if="confirmEntry" class="modal-overlay" @click.self="confirmEntry = null">
+        <div class="modal-card">
+          <div class="modal-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+            </svg>
+          </div>
+          <h3 class="modal-title">¿Borrar simulación?</h3>
+          <p class="modal-desc">
+            Esta acción eliminará la simulación del
+            <strong>{{ confirmEntry.timestamp }}</strong>
+            {{ confirmEntry.hospitalName ? `(${confirmEntry.hospitalName})` : '' }}.
+            No se puede deshacer.
+          </p>
+          <div class="modal-actions">
+            <button class="btn-cancel" @click="confirmEntry = null">Cancelar</button>
+            <button class="btn-delete-confirm" @click="doDelete">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+              </svg>
+              Sí, borrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <header class="page-header">
       <div>
         <h1 class="page-title">Estadísticas e Historial</h1>
@@ -16,7 +49,7 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             :style="{ animation: isLoading ? 'spin 1s linear infinite' : 'none' }">
             <polyline points="1 4 1 10 7 10"/>
-            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
           </svg>
           {{ isLoading ? 'Cargando...' : 'Sincronizar nube' }}
         </button>
@@ -25,12 +58,12 @@
           {{ isFirebaseEnabled ? 'Firebase conectado' : 'Solo memoria' }}
         </div>
         <button v-if="history.length" class="btn-clear" @click="clearHistory">
-          Limpiar historial
+          Limpiar todo
         </button>
       </div>
     </header>
 
-    <!-- Empty state -->
+    <!-- Empty / loading -->
     <div v-if="!history.length && !isLoading" class="empty-state card">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3">
         <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
@@ -38,7 +71,6 @@
       </svg>
       <p>Aún no hay simulaciones registradas.<br/>Ve al Dashboard y ejecuta una predicción.</p>
     </div>
-
     <div v-if="isLoading && !history.length" class="loading-state card">
       <div class="spinner"></div>
       <p>Cargando historial desde Firebase...</p>
@@ -51,7 +83,7 @@
           <p class="label">Total de simulaciones</p>
           <p class="big-num mono">{{ history.length }}</p>
           <p class="card-sub" v-if="isFirebaseEnabled">
-            <span class="cloud-icon">☁</span> Incluye datos de la nube
+            <span>☁</span> Incluye datos de la nube
           </p>
         </div>
         <div class="card summary-card">
@@ -79,7 +111,7 @@
         </div>
       </div>
 
-      <!-- Gráfica de historial -->
+      <!-- Gráfica -->
       <div class="card chart-section" v-if="history.length > 1">
         <h3 class="section-title">Evolución de ocupación por simulación</h3>
         <div class="chart-wrap">
@@ -87,9 +119,17 @@
         </div>
       </div>
 
-      <!-- Tabla de historial -->
+      <!-- Tabla con paginación -->
       <div class="card table-section">
-        <h3 class="section-title">Registro de simulaciones</h3>
+        <div class="table-header">
+          <h3 class="section-title" style="margin:0">Registro de simulaciones</h3>
+          <div class="table-meta">
+            <span class="label">
+              Mostrando {{ paginatedHistory.length }} de {{ history.length }} registros
+            </span>
+          </div>
+        </div>
+
         <div class="table-wrap">
           <table class="history-table">
             <thead>
@@ -98,16 +138,21 @@
                 <th>Hospital</th>
                 <th>Horizonte</th>
                 <th>Pacientes</th>
-                <th>Ingresos/día</th>
+                <th>Ing./día</th>
                 <th>Altas/día</th>
-                <th>Ocupación final</th>
+                <th>Ocup. final</th>
                 <th>Pico</th>
                 <th>Estado</th>
                 <th v-if="isFirebaseEnabled">Fuente</th>
+                <th class="th-actions">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="entry in history" :key="entry.id">
+              <tr
+                v-for="entry in paginatedHistory"
+                :key="entry.id"
+                :class="{ 'row-deleting': deletingId === entry.id }"
+              >
                 <td class="mono text-muted">{{ entry.timestamp }}</td>
                 <td>
                   <span v-if="entry.hospitalName" class="hosp-tag">
@@ -130,9 +175,45 @@
                     {{ entry.firestoreId ? '☁ Nube' : '💾 Local' }}
                   </span>
                 </td>
+                <td class="td-actions">
+                  <button class="btn-row-delete" @click="askDelete(entry)" title="Borrar simulación">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                    </svg>
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Paginador -->
+        <div class="paginator" v-if="totalPages > 1">
+          <button class="page-btn" :disabled="currentPage === 1" @click="currentPage--">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+
+          <div class="page-numbers">
+            <button
+              v-for="p in pageNumbers"
+              :key="p"
+              class="page-num"
+              :class="{ active: p === currentPage, ellipsis: p === '...' }"
+              :disabled="p === '...'"
+              @click="typeof p === 'number' && (currentPage = p)"
+            >{{ p }}</button>
+          </div>
+
+          <button class="page-btn" :disabled="currentPage === totalPages" @click="currentPage++">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+
+          <span class="page-info label">Pág. {{ currentPage }} / {{ totalPages }}</span>
         </div>
       </div>
     </template>
@@ -140,26 +221,77 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Bar } from 'vue-chartjs'
 import {
   Chart as ChartJS, CategoryScale, LinearScale,
   BarElement, Title, Tooltip, Legend
 } from 'chart.js'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { useHistory } from '@/composables/useHistory'
+import { useHistory, PAGE_SIZE } from '@/composables/useHistory'
 import { statusColor } from '@/models/occupancyModel'
 import type { OccupancyStatus } from '@/models/occupancyModel'
+import type { HistoryEntry } from '@/composables/useHistory'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const {
   history, averageOccupancy, statusDistribution, trend,
-  getStatusLabel, clearHistory, loadFromFirestore, isFirebaseEnabled,
+  getStatusLabel, clearHistory, loadFromFirestore,
+  deleteEntry, isFirebaseEnabled,
 } = useHistory()
 
 const isLoading = ref(false)
+const confirmEntry = ref<HistoryEntry | null>(null)
+const deletingId = ref<number | null>(null)
 
+// Paginación
+const currentPage = ref(1)
+const pageSize = PAGE_SIZE
+
+const totalPages = computed(() => Math.ceil(history.value.length / pageSize))
+
+const paginatedHistory = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return history.value.slice(start, start + pageSize)
+})
+
+// Volver a página 1 si el historial cambia y la página actual queda vacía
+watch(() => history.value.length, () => {
+  if (currentPage.value > totalPages.value && totalPages.value > 0) {
+    currentPage.value = totalPages.value
+  }
+})
+
+// Números de página con elipsis
+const pageNumbers = computed((): (number | string)[] => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | string)[] = [1]
+  if (cur > 3) pages.push('...')
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) {
+    pages.push(i)
+  }
+  if (cur < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
+})
+
+// Delete flow
+function askDelete(entry: HistoryEntry) {
+  confirmEntry.value = entry
+}
+
+async function doDelete() {
+  if (!confirmEntry.value) return
+  deletingId.value = confirmEntry.value.id
+  await deleteEntry(confirmEntry.value.id)
+  confirmEntry.value = null
+  deletingId.value = null
+}
+
+// Trend
 const trendLabel = computed(() => {
   if (trend.value === 'subiendo') return 'Subiendo'
   if (trend.value === 'bajando') return 'Bajando'
@@ -188,7 +320,6 @@ async function refreshFromCloud() {
   isLoading.value = false
 }
 
-// Cargar historial de Firestore al entrar a la vista
 onMounted(async () => {
   if (isFirebaseEnabled) {
     isLoading.value = true
@@ -197,21 +328,19 @@ onMounted(async () => {
   }
 })
 
-// Gráfica de barras del historial (últimas 20)
+// Chart
 const historyChartData = computed(() => {
   const items = [...history.value].reverse().slice(-20)
   return {
     labels: items.map(e => e.hospitalName ? e.hospitalName.split(' ').slice(0, 2).join(' ') : e.horizon),
-    datasets: [
-      {
-        label: 'Ocupación final (%)',
-        data: items.map(e => parseFloat(e.finalOccupancy.toFixed(1))),
-        backgroundColor: items.map(e => statusColor(e.status) + '99'),
-        borderColor: items.map(e => statusColor(e.status)),
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
+    datasets: [{
+      label: 'Ocupación final (%)',
+      data: items.map(e => parseFloat(e.finalOccupancy.toFixed(1))),
+      backgroundColor: items.map(e => statusColor(e.status) + '99'),
+      borderColor: items.map(e => statusColor(e.status)),
+      borderWidth: 1,
+      borderRadius: 4,
+    }],
   }
 })
 
@@ -242,13 +371,56 @@ const historyChartOptions = {
 <style scoped>
 .stats-page { padding: 2rem; }
 
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(10,15,30,0.85); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal-card {
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); padding: 2rem;
+  max-width: 400px; width: 100%; text-align: center;
+  animation: pop-in 0.2s cubic-bezier(.16,1,.3,1);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.94) translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.modal-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  display: flex; align-items: center; justify-content: center;
+  color: #ef4444; margin: 0 auto 1rem;
+}
+.modal-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
+.modal-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem; }
+.modal-actions { display: flex; gap: 0.75rem; justify-content: center; }
+.btn-cancel {
+  padding: 0.6rem 1.25rem; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-secondary); font-family: var(--font-body);
+  font-size: 0.875rem; cursor: pointer; transition: all 0.15s;
+}
+.btn-cancel:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.btn-delete-confirm {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.6rem 1.25rem;
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4);
+  border-radius: var(--radius-sm); color: #fca5a5;
+  font-family: var(--font-body); font-size: 0.875rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-delete-confirm:hover { background: rgba(239,68,68,0.25); }
+
+/* Header */
 .page-header {
   display: flex; justify-content: space-between; align-items: flex-start;
   margin-bottom: 2rem;
 }
 .page-title { font-size: 1.5rem; font-weight: 700; }
 .page-sub { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.2rem; }
-
 .header-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; }
 
 .btn-refresh {
@@ -260,27 +432,22 @@ const historyChartOptions = {
 }
 .btn-refresh:hover:not(:disabled) { background: var(--accent-glow); }
 .btn-refresh:disabled { opacity: 0.6; cursor: default; }
-
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .cloud-badge {
   display: flex; align-items: center; gap: 0.35rem;
-  padding: 0.35rem 0.7rem;
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 100px; font-size: 0.72rem; color: var(--text-muted);
+  padding: 0.35rem 0.7rem; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: 100px;
+  font-size: 0.72rem; color: var(--text-muted);
 }
 .cloud-badge.online { color: var(--status-normal); border-color: rgba(16,185,129,0.3); }
-.cloud-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--text-muted);
-}
+.cloud-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); }
 .cloud-badge.online .cloud-dot { background: var(--status-normal); box-shadow: 0 0 4px var(--status-normal); }
 
 .btn-clear {
   padding: 0.4rem 0.85rem; background: transparent;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  color: var(--text-muted); font-size: 0.78rem; cursor: pointer;
-  transition: all 0.2s;
+  color: var(--text-muted); font-size: 0.78rem; cursor: pointer; transition: all 0.2s;
 }
 .btn-clear:hover { border-color: #ef4444; color: #ef4444; }
 
@@ -298,12 +465,9 @@ const historyChartOptions = {
   display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 1rem; margin-bottom: 1.5rem;
 }
-
-.summary-card {}
 .big-num { font-size: 2rem; font-weight: 700; margin-top: 0.4rem; }
 .big-num small { font-size: 1rem; color: var(--text-secondary); }
 .card-sub { font-size: 0.7rem; color: var(--status-normal); margin-top: 0.3rem; }
-.cloud-icon { margin-right: 0.2rem; }
 
 .trend-up    { color: #ef4444; }
 .trend-down  { color: #10b981; }
@@ -321,7 +485,12 @@ const historyChartOptions = {
 .section-title { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 1rem; }
 .chart-wrap { height: 220px; }
 
-.table-section {}
+/* Table */
+.table-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 1rem;
+}
+.table-meta { font-size: 0.72rem; color: var(--text-muted); }
 .table-wrap { overflow-x: auto; }
 
 .history-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
@@ -337,6 +506,17 @@ const historyChartOptions = {
   vertical-align: middle;
 }
 .history-table tr:hover td { background: rgba(59,130,246,0.04); }
+.row-deleting td { opacity: 0.4; transition: opacity 0.2s; }
+
+.th-actions { width: 60px; text-align: center; }
+.td-actions { text-align: center; }
+
+.btn-row-delete {
+  padding: 0.3rem; background: transparent;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+}
+.btn-row-delete:hover { border-color: rgba(239,68,68,0.4); color: #ef4444; background: rgba(239,68,68,0.1); }
 
 .text-muted  { color: var(--text-muted); }
 .text-accent { color: var(--text-accent); }
@@ -352,4 +532,37 @@ const historyChartOptions = {
 }
 .source-tag.cloud { background: rgba(16,185,129,0.1); color: #10b981; }
 .source-tag.local { background: rgba(148,163,184,0.1); color: var(--text-muted); }
+
+/* Paginador */
+.paginator {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.35rem; padding-top: 1.25rem; border-top: 1px solid var(--border);
+  margin-top: 0.75rem; flex-wrap: wrap;
+}
+.page-btn {
+  padding: 0.4rem 0.6rem; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text-accent); }
+.page-btn:disabled { opacity: 0.3; cursor: default; }
+
+.page-numbers { display: flex; gap: 0.25rem; }
+.page-num {
+  min-width: 32px; height: 32px; padding: 0 0.4rem;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-secondary);
+  font-size: 0.8rem; font-family: var(--font-mono);
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.page-num:hover:not(.ellipsis):not(.active) { border-color: var(--accent); color: var(--text-accent); }
+.page-num.active {
+  background: var(--accent); border-color: var(--accent);
+  color: white; font-weight: 700;
+}
+.page-num.ellipsis { cursor: default; border-color: transparent; background: transparent; }
+
+.page-info { margin-left: 0.5rem; }
 </style>
