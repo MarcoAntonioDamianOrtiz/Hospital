@@ -1,5 +1,31 @@
 <template>
   <div class="dashboard">
+
+    <!-- ── Toast de notificación ── -->
+    <Transition name="toast">
+      <div v-if="toast.visible" class="toast" :class="toast.type">
+        <div class="toast-icon">
+          <svg v-if="toast.type === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <div class="toast-body">
+          <p class="toast-title">{{ toast.title }}</p>
+          <p class="toast-msg">{{ toast.message }}</p>
+        </div>
+        <button class="toast-close" @click="toast.visible = false">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </Transition>
+
     <header class="page-header">
       <div>
         <h1 class="page-title">Dashboard de Predicción</h1>
@@ -59,7 +85,7 @@
         <div class="form-group">
           <label class="label">Pacientes actuales</label>
           <div class="input-wrap">
-            <input v-model.number="form.patients" type="number" min="0" max="500" class="input" @input="autoSimulate" />
+            <input v-model.number="form.patients" type="number" min="0" max="500" class="input" />
             <span class="input-suffix">pac.</span>
           </div>
         </div>
@@ -67,7 +93,7 @@
         <div class="form-group">
           <label class="label">Ingresos diarios promedio</label>
           <div class="input-wrap">
-            <input v-model.number="form.admissions" type="number" min="0" max="500" class="input" @input="autoSimulate" />
+            <input v-model.number="form.admissions" type="number" min="0" max="500" class="input" />
             <span class="input-suffix">/día</span>
           </div>
         </div>
@@ -75,7 +101,7 @@
         <div class="form-group">
           <label class="label">Altas diarias promedio</label>
           <div class="input-wrap">
-            <input v-model.number="form.discharges" type="number" min="0" max="500" class="input" @input="autoSimulate" />
+            <input v-model.number="form.discharges" type="number" min="0" max="500" class="input" />
             <span class="input-suffix">/día</span>
           </div>
         </div>
@@ -83,7 +109,7 @@
         <div class="form-group">
           <label class="label">Capacidad total del hospital</label>
           <div class="input-wrap">
-            <input v-model.number="form.capacity" type="number" min="10" max="2000" class="input" @input="autoSimulate" />
+            <input v-model.number="form.capacity" type="number" min="10" max="2000" class="input" />
             <span class="input-suffix">camas</span>
           </div>
         </div>
@@ -94,16 +120,17 @@
             <button
               v-for="h in horizons" :key="h.value"
               class="horizon-btn" :class="{ active: selectedHorizon === h.value }"
-              @click="selectHorizon(h.value)"
+              @click="selectedHorizon = h.value"
             >{{ h.label }}</button>
           </div>
         </div>
 
-        <button class="btn-simulate" @click="simulate">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <button class="btn-simulate" :class="{ simulating: isSimulating }" @click="simulate">
+          <svg v-if="!isSimulating" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
-          Simular
+          <span v-if="isSimulating" class="btn-spinner"></span>
+          {{ isSimulating ? 'Simulando...' : 'Simular' }}
         </button>
 
         <div class="firebase-status" :class="{ active: isFirebaseEnabled }">
@@ -156,13 +183,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, reactive } from 'vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import AlertBanner from '@/components/AlertBanner.vue'
 import OccupancyChart from '@/components/OccupancyChart.vue'
 import MapboxHospitalPicker from '@/components/MapboxHospitalPicker.vue'
-import { runSimulation, statusColor } from '@/models/occupancyModel'
+import { runSimulation, statusColor, statusLabel } from '@/models/occupancyModel'
 import type { SimulationResult } from '@/models/occupancyModel'
 import { useHistory } from '@/composables/useHistory'
 import { type Hospital } from '@/services/hospitals'
@@ -174,6 +201,27 @@ const selectedHorizon = ref(24)
 const result = ref<SimulationResult | null>(null)
 const showMapPicker = ref(false)
 const activeHospital = ref<Hospital | null>(null)
+const isSimulating = ref(false)
+
+// ── Toast ────────────────────────────────────────────────
+const toast = reactive({
+  visible: false,
+  type: 'success' as 'success' | 'error',
+  title: '',
+  message: '',
+})
+let toastTimer: ReturnType<typeof setTimeout>
+
+function showToast(type: 'success' | 'error', title: string, message: string) {
+  clearTimeout(toastTimer)
+  toast.type = type
+  toast.title = title
+  toast.message = message
+  toast.visible = true
+  toastTimer = setTimeout(() => { toast.visible = false }, 4000)
+}
+
+// ──────────────────────────────────────────────────────────
 
 const typeColors: Record<Hospital['type'], string> = {
   IMSS: '#3b82f6',
@@ -211,7 +259,7 @@ function onHospitalSelected(hospital: Hospital) {
     capacity: hospital.capacity,
   }
   showMapPicker.value = false
-  simulate()
+  showToast('success', 'Hospital cargado', `Datos de ${hospital.name} listos. Presiona Simular para continuar.`)
 }
 
 function clearHospital() { activeHospital.value = null }
@@ -224,48 +272,164 @@ function updateClock() {
   })
 }
 
-function simulate() {
-  result.value = runSimulation(
-    {
-      currentPatients: form.value.patients,
-      dailyAdmissions: form.value.admissions,
-      dailyDischarges: form.value.discharges,
-      capacity: form.value.capacity,
-    },
-    selectedHorizon.value,
-  )
-  addEntry(
-    form.value.patients,
-    form.value.admissions,
-    form.value.discharges,
-    selectedHorizon.value,
-    result.value,
-    form.value.capacity,
-    activeHospital.value?.name,
-    activeHospital.value?.id,
-  )
-}
+async function simulate() {
+  if (isSimulating.value) return
 
-function selectHorizon(h: number) {
-  selectedHorizon.value = h
-  simulate()
-}
+  // Validación básica
+  if (form.value.patients < 0 || form.value.admissions < 0 || form.value.discharges < 0) {
+    showToast('error', 'Datos inválidos', 'Los valores no pueden ser negativos.')
+    return
+  }
+  if (form.value.capacity < 1) {
+    showToast('error', 'Capacidad inválida', 'La capacidad del hospital debe ser mayor a 0.')
+    return
+  }
 
-let debounceTimer: ReturnType<typeof setTimeout>
-function autoSimulate() {
-  clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(simulate, 400)
+  isSimulating.value = true
+
+  // Pequeño delay visual para feedback
+  await new Promise(r => setTimeout(r, 350))
+
+  try {
+    result.value = runSimulation(
+      {
+        currentPatients: form.value.patients,
+        dailyAdmissions: form.value.admissions,
+        dailyDischarges: form.value.discharges,
+        capacity: form.value.capacity,
+      },
+      selectedHorizon.value,
+    )
+
+    await addEntry(
+      form.value.patients,
+      form.value.admissions,
+      form.value.discharges,
+      selectedHorizon.value,
+      result.value,
+      form.value.capacity,
+      activeHospital.value?.name,
+      activeHospital.value?.id,
+    )
+
+    const horizonStr = horizons.find(h => h.value === selectedHorizon.value)?.label ?? `${selectedHorizon.value}h`
+    const savedWhere = isFirebaseEnabled ? 'Guardado en la nube ☁' : 'Guardado en memoria local'
+
+    showToast(
+      'success',
+      `Simulación completada · ${horizonStr}`,
+      `Estado: ${statusLabel(result.value.status)} — ${result.value.finalOccupancy.toFixed(1)}% ocupación final. ${savedWhere}.`,
+    )
+  } catch (e) {
+    showToast('error', 'Error en la simulación', 'Ocurrió un problema al procesar los datos. Revisa los valores ingresados.')
+    console.error(e)
+  } finally {
+    isSimulating.value = false
+  }
 }
 
 onMounted(() => {
   updateClock()
   clockInterval = setInterval(updateClock, 1000)
-  simulate()
 })
-onUnmounted(() => clearInterval(clockInterval))
+onUnmounted(() => {
+  clearInterval(clockInterval)
+  clearTimeout(toastTimer)
+})
 </script>
 
 <style scoped>
+/* ── Toast ────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid;
+  min-width: 300px;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  backdrop-filter: blur(12px);
+}
+
+.toast.success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.toast.error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.toast.success .toast-icon { background: rgba(16,185,129,0.2); color: #10b981; }
+.toast.error   .toast-icon { background: rgba(239,68,68,0.2);  color: #ef4444; }
+
+.toast-body { flex: 1; min-width: 0; }
+
+.toast-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toast-msg {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.15rem;
+  transition: color 0.15s;
+  margin-top: 2px;
+}
+.toast-close:hover { color: var(--text-secondary); }
+
+/* Toast transitions */
+.toast-enter-active {
+  transition: all 0.3s cubic-bezier(.16,1,.3,1);
+}
+.toast-leave-active {
+  transition: all 0.25s ease-in;
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(60px) scale(0.96);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(60px);
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
 .dashboard { padding: 2rem; }
 
 .page-header {
@@ -364,8 +528,19 @@ onUnmounted(() => clearInterval(clockInterval))
   color: white; font-family: var(--font-body); font-size: 0.9rem; font-weight: 600;
   cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px var(--accent-glow);
 }
-.btn-simulate:hover { background: #2563eb; transform: translateY(-1px); }
-.btn-simulate:active { transform: none; }
+.btn-simulate:hover:not(.simulating) { background: #2563eb; transform: translateY(-1px); }
+.btn-simulate:active:not(.simulating) { transform: none; }
+.btn-simulate.simulating { opacity: 0.75; cursor: default; }
+
+.btn-spinner {
+  width: 15px; height: 15px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .firebase-status {
   display: flex; align-items: center; gap: 0.4rem;
