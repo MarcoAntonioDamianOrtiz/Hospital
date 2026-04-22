@@ -47,7 +47,10 @@
         </div>
         <div class="rec-info">
           <p class="rec-title">{{ bestHospital.name }}</p>
-          <p class="rec-meta">{{ bestHospital.city }} · {{ bestHospital.type }} · <strong style="color: var(--status-normal)">{{ hospitalOccupancy(bestHospital).toFixed(0) }}% ocupación</strong></p>
+          <p class="rec-meta">
+            {{ bestHospital.city }} · {{ bestHospital.type }} ·
+            <strong style="color: var(--status-normal)">{{ hospitalOccupancy(bestHospital).toFixed(0) }}% ocupación</strong>
+          </p>
         </div>
         <button class="btn-go-best" @click="selectHospital(bestHospital)">
           Ver detalles
@@ -89,7 +92,9 @@
                 style="transition: stroke-dasharray 0.6s"
               />
             </svg>
-            <span class="occ-pct mono" :style="{ color: occColor(h) }">{{ hospitalOccupancy(h).toFixed(0) }}<small>%</small></span>
+            <span class="occ-pct mono" :style="{ color: occColor(h) }">
+              {{ hospitalOccupancy(h).toFixed(0) }}<small>%</small>
+            </span>
           </div>
           <div class="occ-stats">
             <div class="occ-stat">
@@ -123,7 +128,8 @@
           <div class="sim-hosp-info">
             <div class="sim-pin" :style="{ background: typeColors[selectedHospital.type] }">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 6.9 8 11.7z"/>
+                <circle cx="12" cy="10" r="3"/>
+                <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 6.9 8 11.7z"/>
               </svg>
             </div>
             <div>
@@ -133,7 +139,8 @@
           </div>
           <div class="sim-horizons">
             <button
-              v-for="h in horizons" :key="h.value"
+              v-for="h in horizons"
+              :key="h.value"
               class="h-btn"
               :class="{ active: horizon === h.value }"
               @click="runSim(h.value)"
@@ -187,6 +194,7 @@ import { HOSPITALS, hospitalOccupancy, type Hospital } from '@/services/hospital
 import { runSimulation, statusColor } from '@/models/occupancyModel'
 import type { SimulationResult, OccupancyStatus } from '@/models/occupancyModel'
 
+// ── State ──────────────────────────────────────────────────
 const searchQuery = ref('')
 const activeFilter = ref('all')
 const sortBy = ref('occupancy-asc')
@@ -195,6 +203,7 @@ const selectedHospital = ref<Hospital | null>(null)
 const simResult = ref<SimulationResult | null>(null)
 const horizon = ref(24)
 
+// ── Constants ──────────────────────────────────────────────
 const typeColors: Record<Hospital['type'], string> = {
   IMSS: '#3b82f6',
   ISSSTE: '#8b5cf6',
@@ -217,6 +226,7 @@ const horizons = [
   { label: '72h', value: 72 },
 ]
 
+// ── Helpers ────────────────────────────────────────────────
 function occColor(h: Hospital): string {
   const pct = hospitalOccupancy(h)
   if (pct < 75) return '#10b981'
@@ -225,8 +235,17 @@ function occColor(h: Hospital): string {
   return '#ef4444'
 }
 
-function occStatus(h: Hospital): OccupancyStatus { = computed(() => {
-  let list = HOSPITALS
+function occStatus(h: Hospital): OccupancyStatus {
+  const pct = hospitalOccupancy(h)
+  if (pct < 75) return 'normal'
+  if (pct < 85) return 'alto'
+  if (pct < 95) return 'saturado'
+  return 'colapso'
+}
+
+// ── Computed ───────────────────────────────────────────────
+const filteredHospitals = computed(() => {
+  let list = [...HOSPITALS]
   if (activeFilter.value !== 'all') {
     list = list.filter(h => h.type === activeFilter.value)
   }
@@ -249,7 +268,7 @@ const sortedHospitals = computed(() => {
   })
 })
 
-const bestHospital = computed(() => {
+const bestHospital = computed((): Hospital | null => {
   const avail = filteredHospitals.value.filter(h => hospitalOccupancy(h) < 85)
   if (!avail.length) return null
   return avail.reduce((best, h) =>
@@ -257,6 +276,7 @@ const bestHospital = computed(() => {
   )
 })
 
+// ── Actions ────────────────────────────────────────────────
 function selectHospital(h: Hospital) {
   selectedId.value = h.id
   selectedHospital.value = h
@@ -319,7 +339,10 @@ function runSim(h: number) {
   transition: all 0.15s;
 }
 .filter-btn:hover { border-color: var(--border-strong); }
-.filter-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--text-accent); font-weight: 600; }
+.filter-btn.active {
+  background: var(--accent-glow); border-color: var(--accent);
+  color: var(--text-accent); font-weight: 600;
+}
 .filter-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
 .filter-sort { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
@@ -344,14 +367,15 @@ function runSim(h: number) {
   background: rgba(16,185,129,0.15); padding: 0.3rem 0.65rem;
   border-radius: 100px; white-space: nowrap;
 }
+.rec-info { flex: 1; min-width: 0; }
 .rec-title { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
 .rec-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.1rem; }
 .btn-go-best {
-  margin-left: auto; display: flex; align-items: center; gap: 0.35rem;
+  display: flex; align-items: center; gap: 0.35rem;
   padding: 0.4rem 0.9rem; background: rgba(16,185,129,0.15);
   border: 1px solid rgba(16,185,129,0.35); border-radius: var(--radius-sm);
-  color: var(--status-normal); font-size: 0.8rem; font-weight: 600; cursor: pointer;
-  transition: all 0.15s;
+  color: var(--status-normal); font-size: 0.8rem; font-weight: 600;
+  font-family: var(--font-body); cursor: pointer; transition: all 0.15s;
 }
 .btn-go-best:hover { background: rgba(16,185,129,0.25); }
 
@@ -368,7 +392,8 @@ function runSim(h: number) {
 .hospital-card.selected { border-color: var(--accent); background: rgba(59,130,246,0.06); }
 
 .hosp-card-top {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.5rem;
 }
 .type-pill {
   font-size: 0.62rem; font-weight: 700; padding: 0.15rem 0.5rem;
@@ -399,7 +424,6 @@ function runSim(h: number) {
 .select-hint { font-size: 0.7rem; color: var(--text-muted); }
 .selected-hint { font-size: 0.7rem; color: var(--accent); font-weight: 600; }
 
-/* Simulador panel */
 .sim-panel { margin-bottom: 1.5rem; padding: 0; overflow: hidden; }
 
 .sim-header {
@@ -424,7 +448,10 @@ function runSim(h: number) {
   font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
 }
 .h-btn:hover { border-color: var(--accent); color: var(--text-accent); }
-.h-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--text-accent); font-weight: 700; }
+.h-btn.active {
+  background: var(--accent-glow); border-color: var(--accent);
+  color: var(--text-accent); font-weight: 700;
+}
 
 .sim-body { padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 
