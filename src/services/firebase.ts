@@ -1,13 +1,6 @@
 /**
  * Firebase / Firestore Service
  * Maneja persistencia del historial de simulaciones.
- *
- * SETUP RÁPIDO:
- *  1. Crea un proyecto en https://console.firebase.google.com
- *  2. Activa Firestore Database (modo test está bien para empezar)
- *  3. Ve a Configuración del proyecto → Tus apps → Web
- *  4. Copia tu firebaseConfig y pégalo en FIREBASE_CONFIG abajo
- *  5. Instala: npm install firebase
  */
 
 import { initializeApp, type FirebaseApp } from 'firebase/app'
@@ -24,7 +17,6 @@ import {
 } from 'firebase/firestore'
 import type { SimulationResult, OccupancyStatus } from '@/models/occupancyModel'
 
-// ── Reemplaza con tu configuración real de Firebase ─────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyCRT7C2_gxH0lK6Fp67_bs0893oW2oUlps",
   authDomain: "hospital-4f5c1.firebaseapp.com",
@@ -33,8 +25,7 @@ const firebaseConfig = {
   messagingSenderId: "9287916114",
   appId: "1:9287916114:web:4355b8d9d8ab87cdce5d8b",
   measurementId: "G-7D8SQB4PY8"
-};
-// ─────────────────────────────────────────────────────────────────────────────
+}
 
 export interface FirestoreEntry {
   id?: string
@@ -69,13 +60,12 @@ class FirebaseService {
   }
 
   private init() {
-    // Solo inicializa si hay credenciales configuradas
-    if (!FIREBASE_CONFIG.projectId) {
+    if (!firebaseConfig.projectId) {
       console.info('[Firebase] Sin configuración. Historial solo en memoria.')
       return
     }
     try {
-      this.app = initializeApp(FIREBASE_CONFIG)
+      this.app = initializeApp(firebaseConfig)
       this.db = getFirestore(this.app)
       this.isAvailable = true
       console.info('[Firebase] Conectado a Firestore.')
@@ -84,10 +74,6 @@ class FirebaseService {
     }
   }
 
-  /**
-   * Guarda una simulación en Firestore.
-   * Retorna el ID del documento creado, o null si falla.
-   */
   async saveSimulation(
     input: FirestoreEntry['input'],
     result: SimulationResult,
@@ -121,9 +107,6 @@ class FirebaseService {
     }
   }
 
-  /**
-   * Obtiene las últimas N simulaciones desde Firestore.
-   */
   async fetchHistory(maxEntries = 50): Promise<FirestoreEntry[]> {
     if (!this.db) return []
 
@@ -145,5 +128,4 @@ class FirebaseService {
   }
 }
 
-// Singleton exportado
 export const firebaseService = new FirebaseService()

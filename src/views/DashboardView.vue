@@ -1,6 +1,5 @@
 <template>
   <div class="dashboard">
-    <!-- Header -->
     <header class="page-header">
       <div>
         <h1 class="page-title">Dashboard de Predicción</h1>
@@ -60,12 +59,7 @@
         <div class="form-group">
           <label class="label">Pacientes actuales</label>
           <div class="input-wrap">
-            <input
-              v-model.number="form.patients"
-              type="number" min="0" max="500"
-              class="input"
-              @input="autoSimulate"
-            />
+            <input v-model.number="form.patients" type="number" min="0" max="500" class="input" @input="autoSimulate" />
             <span class="input-suffix">pac.</span>
           </div>
         </div>
@@ -73,12 +67,7 @@
         <div class="form-group">
           <label class="label">Ingresos diarios promedio</label>
           <div class="input-wrap">
-            <input
-              v-model.number="form.admissions"
-              type="number" min="0" max="500"
-              class="input"
-              @input="autoSimulate"
-            />
+            <input v-model.number="form.admissions" type="number" min="0" max="500" class="input" @input="autoSimulate" />
             <span class="input-suffix">/día</span>
           </div>
         </div>
@@ -86,12 +75,7 @@
         <div class="form-group">
           <label class="label">Altas diarias promedio</label>
           <div class="input-wrap">
-            <input
-              v-model.number="form.discharges"
-              type="number" min="0" max="500"
-              class="input"
-              @input="autoSimulate"
-            />
+            <input v-model.number="form.discharges" type="number" min="0" max="500" class="input" @input="autoSimulate" />
             <span class="input-suffix">/día</span>
           </div>
         </div>
@@ -99,29 +83,19 @@
         <div class="form-group">
           <label class="label">Capacidad total del hospital</label>
           <div class="input-wrap">
-            <input
-              v-model.number="form.capacity"
-              type="number" min="10" max="2000"
-              class="input"
-              @input="autoSimulate"
-            />
+            <input v-model.number="form.capacity" type="number" min="10" max="2000" class="input" @input="autoSimulate" />
             <span class="input-suffix">camas</span>
           </div>
         </div>
 
-        <!-- Botones de horizonte temporal -->
         <div class="form-group">
           <label class="label">Horizonte de predicción</label>
           <div class="horizon-buttons">
             <button
-              v-for="h in horizons"
-              :key="h.value"
-              class="horizon-btn"
-              :class="{ active: selectedHorizon === h.value }"
+              v-for="h in horizons" :key="h.value"
+              class="horizon-btn" :class="{ active: selectedHorizon === h.value }"
               @click="selectHorizon(h.value)"
-            >
-              {{ h.label }}
-            </button>
+            >{{ h.label }}</button>
           </div>
         </div>
 
@@ -132,7 +106,6 @@
           Simular
         </button>
 
-        <!-- Firebase status -->
         <div class="firebase-status" :class="{ active: isFirebaseEnabled }">
           <span class="firebase-dot"></span>
           <span>{{ isFirebaseEnabled ? 'Historial en la nube' : 'Historial local' }}</span>
@@ -141,8 +114,6 @@
 
       <!-- ── Columna derecha: resultados ── -->
       <div class="results-col">
-
-        <!-- Estado actual -->
         <div class="status-row" v-if="result">
           <div class="status-main card">
             <p class="label">Estado proyectado</p>
@@ -154,41 +125,15 @@
           </div>
         </div>
 
-        <!-- Métricas -->
         <div class="metrics-grid" v-if="result">
-          <MetricCard
-            label="Ocupación actual"
-            :value="currentOccupancy.toFixed(1)"
-            unit="%"
-            :percent="currentOccupancy"
-            :bar-color="barColor"
-          />
-          <MetricCard
-            label="Pico proyectado"
-            :value="result.peakOccupancy.toFixed(1)"
-            unit="%"
-            :sub="`en ~${result.peakTime.toFixed(0)}h`"
-            :percent="result.peakOccupancy"
-            :bar-color="barColor"
-          />
-          <MetricCard
-            label="Tiempo de respuesta"
-            :value="result.timeConstant.toFixed(1)"
-            unit="h"
-            sub="Velocidad de cambio del sistema"
-          />
-          <MetricCard
-            label="Camas disponibles"
-            :value="Math.max(0, form.capacity - form.patients)"
-            unit="camas"
-            :sub="`de ${form.capacity} total`"
-          />
+          <MetricCard label="Ocupación actual" :value="currentOccupancy.toFixed(1)" unit="%" :percent="currentOccupancy" :bar-color="barColor" />
+          <MetricCard label="Pico proyectado" :value="result.peakOccupancy.toFixed(1)" unit="%" :sub="`en ~${result.peakTime.toFixed(0)}h`" :percent="result.peakOccupancy" :bar-color="barColor" />
+          <MetricCard label="Tiempo de respuesta" :value="result.timeConstant.toFixed(1)" unit="h" sub="Velocidad de cambio del sistema" />
+          <MetricCard label="Camas disponibles" :value="Math.max(0, form.capacity - form.patients)" unit="camas" :sub="`de ${form.capacity} total`" />
         </div>
 
-        <!-- Alerta -->
         <AlertBanner v-if="result" :alert="result.alert" :status="result.status" />
 
-        <!-- Gráfica -->
         <div class="chart-panel card" v-if="result && result.points.length > 0">
           <div class="chart-header">
             <h3 class="panel-title" style="margin:0">Evolución de la ocupación</h3>
@@ -197,7 +142,6 @@
           <OccupancyChart :points="result.points" :horizon="selectedHorizon" />
         </div>
 
-        <!-- Empty state -->
         <div v-if="!result" class="empty-state card">
           <div class="empty-icon">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -221,17 +165,11 @@ import MapboxHospitalPicker from '@/components/MapboxHospitalPicker.vue'
 import { runSimulation, statusColor } from '@/models/occupancyModel'
 import type { SimulationResult } from '@/models/occupancyModel'
 import { useHistory } from '@/composables/useHistory'
-import { type Hospital, hospitalTypeColor } from '@/services/hospitals'
+import { type Hospital } from '@/services/hospitals'
 
 const { addEntry, isFirebaseEnabled } = useHistory()
 
-const form = ref({
-  patients: 120,
-  admissions: 45,
-  discharges: 40,
-  capacity: 200,
-})
-
+const form = ref({ patients: 120, admissions: 45, discharges: 40, capacity: 200 })
 const selectedHorizon = ref(24)
 const result = ref<SimulationResult | null>(null)
 const showMapPicker = ref(false)
@@ -264,7 +202,6 @@ const barColor = computed(() =>
   result.value ? statusColor(result.value.status) : '#3b82f6'
 )
 
-// ── Hospital desde el mapa ────────────────────────────────────────────────────
 function onHospitalSelected(hospital: Hospital) {
   activeHospital.value = hospital
   form.value = {
@@ -277,11 +214,8 @@ function onHospitalSelected(hospital: Hospital) {
   simulate()
 }
 
-function clearHospital() {
-  activeHospital.value = null
-}
+function clearHospital() { activeHospital.value = null }
 
-// ── Reloj ────────────────────────────────────────────────────────────────────
 const currentTime = ref('')
 let clockInterval: ReturnType<typeof setInterval>
 function updateClock() {
@@ -290,7 +224,6 @@ function updateClock() {
   })
 }
 
-// ── Simulación ───────────────────────────────────────────────────────────────
 function simulate() {
   result.value = runSimulation(
     {
@@ -329,7 +262,6 @@ onMounted(() => {
   clockInterval = setInterval(updateClock, 1000)
   simulate()
 })
-
 onUnmounted(() => clearInterval(clockInterval))
 </script>
 
@@ -347,22 +279,17 @@ onUnmounted(() => clearInterval(clockInterval))
 
 .btn-map {
   display: flex; align-items: center; gap: 0.45rem;
-  padding: 0.45rem 0.9rem;
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--text-accent);
-  font-size: 0.8rem; font-family: var(--font-body); font-weight: 500;
-  cursor: pointer; transition: all 0.15s;
+  padding: 0.45rem 0.9rem; background: transparent;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  color: var(--text-accent); font-size: 0.8rem; font-family: var(--font-body);
+  font-weight: 500; cursor: pointer; transition: all 0.15s;
 }
 .btn-map:hover { background: var(--accent-glow); border-color: var(--accent); }
 
-/* Hospital banner */
 .hospital-banner {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.75rem 1.1rem; margin-bottom: 1.25rem;
-  background: rgba(59,130,246,0.06);
-  border-color: rgba(59,130,246,0.25);
+  background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.25);
 }
 .hosp-banner-left { display: flex; align-items: center; gap: 0.75rem; }
 .hosp-pin {
@@ -376,17 +303,14 @@ onUnmounted(() => clearInterval(clockInterval))
   display: flex; align-items: center; gap: 0.35rem;
   padding: 0.3rem 0.65rem; background: transparent;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  color: var(--text-muted); font-size: 0.72rem; cursor: pointer;
-  transition: all 0.15s;
+  color: var(--text-muted); font-size: 0.72rem; cursor: pointer; transition: all 0.15s;
 }
 .btn-clear-hosp:hover { border-color: #ef4444; color: #ef4444; }
 
-/* Map overlay */
 .map-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(10,15,30,0.85); backdrop-filter: blur(6px);
-  display: flex; align-items: center; justify-content: center;
-  padding: 1.5rem;
+  display: flex; align-items: center; justify-content: center; padding: 1.5rem;
 }
 .map-modal {
   width: 100%; max-width: 960px;
@@ -397,15 +321,11 @@ onUnmounted(() => clearInterval(clockInterval))
   to   { opacity: 1; transform: none; }
 }
 
-/* Grid layout */
 .dashboard-grid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 1.5rem;
-  align-items: start;
+  display: grid; grid-template-columns: 280px 1fr;
+  gap: 1.5rem; align-items: start;
 }
 
-/* Form */
 .panel-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1.2rem; color: var(--text-secondary); }
 
 .form-group { margin-bottom: 1.1rem; }
@@ -414,14 +334,9 @@ onUnmounted(() => clearInterval(clockInterval))
 .input-wrap { position: relative; display: flex; align-items: center; }
 .input {
   width: 100%; padding: 0.6rem 2.5rem 0.6rem 0.75rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.95rem;
-  outline: none;
-  transition: border-color 0.2s;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 0.95rem; outline: none; transition: border-color 0.2s;
 }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .input-suffix {
@@ -431,82 +346,59 @@ onUnmounted(() => clearInterval(clockInterval))
 
 .horizon-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
 .horizon-btn {
-  padding: 0.45rem 0;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: all 0.15s;
+  padding: 0.45rem 0; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-secondary); font-family: var(--font-mono);
+  font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
 }
 .horizon-btn:hover { border-color: var(--accent); color: var(--text-accent); }
 .horizon-btn.active {
-  background: var(--accent-glow);
-  border-color: var(--accent);
-  color: var(--text-accent);
-  font-weight: 700;
+  background: var(--accent-glow); border-color: var(--accent);
+  color: var(--text-accent); font-weight: 700;
 }
 
 .btn-simulate {
   display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-  width: 100%; padding: 0.75rem;
-  margin-top: 0.5rem;
-  background: var(--accent);
-  border: none; border-radius: var(--radius-sm);
+  width: 100%; padding: 0.75rem; margin-top: 0.5rem;
+  background: var(--accent); border: none; border-radius: var(--radius-sm);
   color: white; font-family: var(--font-body); font-size: 0.9rem; font-weight: 600;
-  cursor: pointer; transition: all 0.2s;
-  box-shadow: 0 4px 20px var(--accent-glow);
+  cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px var(--accent-glow);
 }
 .btn-simulate:hover { background: #2563eb; transform: translateY(-1px); }
 .btn-simulate:active { transform: none; }
 
-/* Firebase status */
 .firebase-status {
   display: flex; align-items: center; gap: 0.4rem;
   margin-top: 0.75rem; padding: 0.5rem 0.65rem;
   background: var(--bg-input); border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  font-size: 0.7rem; color: var(--text-muted);
+  border: 1px solid var(--border); font-size: 0.7rem; color: var(--text-muted);
 }
 .firebase-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--text-muted); flex-shrink: 0;
 }
 .firebase-status.active .firebase-dot {
-  background: var(--status-normal);
-  box-shadow: 0 0 5px var(--status-normal);
+  background: var(--status-normal); box-shadow: 0 0 5px var(--status-normal);
   animation: pulse 2s infinite;
 }
 .firebase-status.active { color: var(--text-secondary); }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-/* Results column */
 .results-col { display: flex; flex-direction: column; gap: 1rem; }
 
 .status-main { display: flex; flex-direction: column; gap: 0.5rem; }
 .status-display { display: flex; align-items: center; gap: 1rem; margin-top: 0.4rem; }
-.occupancy-big {
-  font-size: 2.5rem; font-weight: 700; color: var(--text-primary);
-  margin-left: auto;
-}
+.occupancy-big { font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-left: auto; }
 .occupancy-big small { font-size: 1rem; color: var(--text-secondary); }
 .occupancy-desc { font-size: 0.75rem; color: var(--text-muted); }
 
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
+.metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 
-.chart-panel {}
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1rem; padding: 3rem; text-align: center;
-  color: var(--text-muted);
+  gap: 1rem; padding: 3rem; text-align: center; color: var(--text-muted);
 }
 .empty-icon { opacity: 0.3; }
 </style>
