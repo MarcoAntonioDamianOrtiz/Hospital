@@ -36,7 +36,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 6.9 8 11.7z"/>
           </svg>
-          Seleccionar hospital
+          <span class="btn-map-text">Seleccionar hospital</span>
         </button>
         <div class="header-time mono">{{ currentTime }}</div>
       </div>
@@ -221,8 +221,6 @@ function showToast(type: 'success' | 'error', title: string, message: string) {
   toastTimer = setTimeout(() => { toast.visible = false }, 4000)
 }
 
-// ──────────────────────────────────────────────────────────
-
 const typeColors: Record<Hospital['type'], string> = {
   IMSS: '#3b82f6',
   ISSSTE: '#8b5cf6',
@@ -275,7 +273,6 @@ function updateClock() {
 async function simulate() {
   if (isSimulating.value) return
 
-  // Validación básica
   if (form.value.patients < 0 || form.value.admissions < 0 || form.value.discharges < 0) {
     showToast('error', 'Datos inválidos', 'Los valores no pueden ser negativos.')
     return
@@ -286,8 +283,6 @@ async function simulate() {
   }
 
   isSimulating.value = true
-
-  // Pequeño delay visual para feedback
   await new Promise(r => setTimeout(r, 350))
 
   try {
@@ -413,32 +408,21 @@ onUnmounted(() => {
 }
 .toast-close:hover { color: var(--text-secondary); }
 
-/* Toast transitions */
-.toast-enter-active {
-  transition: all 0.3s cubic-bezier(.16,1,.3,1);
-}
-.toast-leave-active {
-  transition: all 0.25s ease-in;
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(60px) scale(0.96);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(60px);
-}
+.toast-enter-active { transition: all 0.3s cubic-bezier(.16,1,.3,1); }
+.toast-leave-active { transition: all 0.25s ease-in; }
+.toast-enter-from   { opacity: 0; transform: translateX(60px) scale(0.96); }
+.toast-leave-to     { opacity: 0; transform: translateX(60px); }
 
 /* ── Layout ────────────────────────────────────────────────── */
 .dashboard { padding: 2rem; }
 
 .page-header {
   display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap;
 }
 .page-title { font-size: 1.5rem; font-weight: 700; }
 .page-sub { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.2rem; }
-.header-right { display: flex; align-items: center; gap: 1rem; }
+.header-right { display: flex; align-items: center; gap: 1rem; flex-shrink: 0; }
 .header-time { font-size: 0.8rem; color: var(--text-muted); }
 
 .btn-map {
@@ -454,6 +438,7 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.75rem 1.1rem; margin-bottom: 1.25rem;
   background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.25);
+  flex-wrap: wrap; gap: 0.75rem;
 }
 .hosp-banner-left { display: flex; align-items: center; gap: 0.75rem; }
 .hosp-pin {
@@ -468,26 +453,32 @@ onUnmounted(() => {
   padding: 0.3rem 0.65rem; background: transparent;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   color: var(--text-muted); font-size: 0.72rem; cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
 }
 .btn-clear-hosp:hover { border-color: #ef4444; color: #ef4444; }
 
 .map-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(10,15,30,0.85); backdrop-filter: blur(6px);
-  display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
 }
 .map-modal {
   width: 100%; max-width: 960px;
   animation: pop-in 0.25s cubic-bezier(.16,1,.3,1);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 @keyframes pop-in {
   from { opacity: 0; transform: scale(0.96) translateY(12px); }
   to   { opacity: 1; transform: none; }
 }
 
+/* ── Dashboard grid ──────────────────────────────────────── */
 .dashboard-grid {
-  display: grid; grid-template-columns: 280px 1fr;
-  gap: 1.5rem; align-items: start;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
+  align-items: start;
 }
 
 .panel-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1.2rem; color: var(--text-secondary); }
@@ -562,18 +553,107 @@ onUnmounted(() => {
 .results-col { display: flex; flex-direction: column; gap: 1rem; }
 
 .status-main { display: flex; flex-direction: column; gap: 0.5rem; }
-.status-display { display: flex; align-items: center; gap: 1rem; margin-top: 0.4rem; }
+.status-display { display: flex; align-items: center; gap: 1rem; margin-top: 0.4rem; flex-wrap: wrap; }
 .occupancy-big { font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-left: auto; }
 .occupancy-big small { font-size: 1rem; color: var(--text-secondary); }
 .occupancy-desc { font-size: 0.75rem; color: var(--text-muted); }
 
 .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 
-.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
 
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 1rem; padding: 3rem; text-align: center; color: var(--text-muted);
 }
 .empty-icon { opacity: 0.3; }
+
+/* ── Responsive: Tablet (768px - 1023px) ─────────────────── */
+@media (max-width: 1023px) {
+  .dashboard-grid {
+    grid-template-columns: 240px 1fr;
+    gap: 1rem;
+  }
+  .dashboard { padding: 1.5rem; }
+}
+
+/* ── Responsive: Mobile (< 768px) ───────────────────────── */
+@media (max-width: 767px) {
+  .dashboard { padding: 1rem; }
+
+  .page-title { font-size: 1.2rem; }
+  .page-sub   { font-size: 0.8rem; }
+
+  /* Header: título arriba, botones abajo */
+  .page-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Ocultar texto del botón mapa, solo icono */
+  .btn-map-text { display: none; }
+  .btn-map { padding: 0.45rem 0.65rem; }
+
+  /* Toast ocupa más ancho */
+  .toast {
+    left: 1rem;
+    right: 1rem;
+    min-width: unset;
+    max-width: unset;
+    top: 1rem;
+  }
+
+  /* Dashboard: 1 sola columna */
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Métricas: 2 columnas en móvil */
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  /* Horizons: 4 botones en fila (más pequeños) */
+  .horizon-buttons {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.3rem;
+  }
+  .horizon-btn {
+    font-size: 0.7rem;
+    padding: 0.4rem 0;
+  }
+
+  /* Ocupación grande */
+  .occupancy-big { font-size: 2rem; margin-left: 0; }
+
+  /* Map modal: pantalla completa en móvil */
+  .map-overlay { padding: 0; align-items: flex-end; }
+  .map-modal {
+    max-width: 100%;
+    max-height: 95vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    overflow-y: auto;
+  }
+
+  /* Hospital banner */
+  .hospital-banner { padding: 0.65rem 0.85rem; }
+  .hosp-meta { font-size: 0.68rem; }
+}
+
+/* ── Responsive: Pequeño (< 480px) ──────────────────────── */
+@media (max-width: 479px) {
+  /* Métricas: 1 columna en pantallas muy pequeñas */
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-title { font-size: 1.1rem; }
+}
 </style>

@@ -1,7 +1,16 @@
 <template>
   <div class="app-shell">
+    <!-- Overlay para cerrar sidebar en móvil -->
+    <Transition name="fade">
+      <div
+        v-if="isLoggedIn() && sidebarOpen && isMobile"
+        class="sidebar-overlay"
+        @click="sidebarOpen = false"
+      />
+    </Transition>
+
     <!-- Sidebar solo cuando está logueado -->
-    <nav v-if="isLoggedIn()" class="sidebar">
+    <nav v-if="isLoggedIn()" class="sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-logo">
         <div class="logo-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -12,6 +21,12 @@
           <span class="logo-main">HosPredict</span>
           <span class="logo-sub">Sistema Inteligente</span>
         </div>
+        <!-- Botón cerrar sidebar en móvil -->
+        <button class="btn-sidebar-close" @click="sidebarOpen = false" aria-label="Cerrar menú">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Rol badge -->
@@ -29,7 +44,7 @@
       <div class="nav-links">
         <!-- Admin links -->
         <template v-if="isAdmin()">
-          <RouterLink to="/" class="nav-item" :class="{ active: route.name === 'dashboard' }">
+          <RouterLink to="/" class="nav-item" :class="{ active: route.name === 'dashboard' }" @click="closeSidebarOnMobile">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
               <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -37,7 +52,7 @@
             <span>Dashboard</span>
           </RouterLink>
 
-          <RouterLink to="/estadisticas" class="nav-item" :class="{ active: route.name === 'estadisticas' }">
+          <RouterLink to="/estadisticas" class="nav-item" :class="{ active: route.name === 'estadisticas' }" @click="closeSidebarOnMobile">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
               <line x1="6" y1="20" x2="6" y2="14"/>
@@ -48,7 +63,7 @@
 
         <!-- User links -->
         <template v-else>
-          <RouterLink to="/consulta" class="nav-item" :class="{ active: route.name === 'consulta' }">
+          <RouterLink to="/consulta" class="nav-item" :class="{ active: route.name === 'consulta' }" @click="closeSidebarOnMobile">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
@@ -79,6 +94,26 @@
       </div>
     </nav>
 
+    <!-- Topbar móvil (solo cuando está logueado) -->
+    <header v-if="isLoggedIn()" class="mobile-topbar">
+      <button class="btn-hamburger" @click="sidebarOpen = !sidebarOpen" aria-label="Abrir menú">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="topbar-logo">
+        <div class="topbar-logo-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </div>
+        <span class="topbar-logo-text">HosPredict</span>
+      </div>
+      <div class="topbar-user-avatar">{{ currentUser?.avatar }}</div>
+    </header>
+
     <!-- Main content -->
     <main :class="['main-content', { 'no-sidebar': !isLoggedIn() }]">
       <RouterView v-slot="{ Component }">
@@ -93,15 +128,39 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/services/auth'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
 const { isLoggedIn, isAdmin, currentUser, logout } = useAuth()
 
+const sidebarOpen = ref(false)
+const isMobile = ref(false)
+
+function checkMobile() {
+  isMobile.value = window.innerWidth < 768
+  // En desktop el sidebar siempre visible (no controlado por sidebarOpen)
+  if (!isMobile.value) sidebarOpen.value = false
+}
+
+function closeSidebarOnMobile() {
+  if (isMobile.value) sidebarOpen.value = false
+}
+
 function handleLogout() {
+  sidebarOpen.value = false
   logout()
   router.push('/login')
 }
+
+onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
+})
 </script>
 
 <style scoped>
@@ -110,9 +169,18 @@ function handleLogout() {
   min-height: 100vh;
 }
 
+/* ── Overlay móvil ──────────────────────────────────────── */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+}
+
 /* ── Sidebar ─────────────────────────────────────────────── */
 .sidebar {
-  width: 220px;
+  width: var(--sidebar-width, 220px);
   min-height: 100vh;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
@@ -122,7 +190,23 @@ function handleLogout() {
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 100;
+  transition: transform 0.3s cubic-bezier(.16,1,.3,1);
 }
+
+/* Botón cerrar solo visible en móvil */
+.btn-sidebar-close {
+  display: none;
+  padding: 0.3rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.btn-sidebar-close:hover { border-color: #ef4444; color: #ef4444; }
 
 .sidebar-logo {
   display: flex;
@@ -229,6 +313,55 @@ function handleLogout() {
 }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+/* ── Topbar móvil ────────────────────────────────────────── */
+.mobile-topbar {
+  display: none; /* oculto por defecto en desktop */
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  padding: 0 1rem;
+  gap: 0.75rem;
+  z-index: 98;
+}
+
+.btn-hamburger {
+  padding: 0.4rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-hamburger:hover { border-color: var(--accent); color: var(--text-accent); }
+
+.topbar-logo {
+  display: flex; align-items: center; gap: 0.5rem; flex: 1;
+}
+.topbar-logo-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent), #6366f1);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  color: white; flex-shrink: 0;
+}
+.topbar-logo-text {
+  font-weight: 700; font-size: 0.9rem; color: var(--text-primary);
+}
+
+.topbar-user-avatar {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), #6366f1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 700; color: white;
+  flex-shrink: 0;
+}
+
 /* ── Main content ────────────────────────────────────────── */
 .main-content {
   flex: 1;
@@ -238,5 +371,45 @@ function handleLogout() {
 }
 .main-content.no-sidebar {
   margin-left: 0;
+}
+
+/* ── Responsive: Tablet (768px - 1023px) ─────────────────── */
+@media (max-width: 1023px) {
+  .sidebar {
+    width: 200px;
+  }
+  .main-content {
+    margin-left: 200px;
+  }
+}
+
+/* ── Responsive: Mobile (< 768px) ───────────────────────── */
+@media (max-width: 767px) {
+  /* Sidebar se convierte en drawer deslizable */
+  .sidebar {
+    width: 260px;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Mostrar botón cerrar dentro del sidebar en móvil */
+  .btn-sidebar-close {
+    display: flex;
+  }
+
+  /* Main content ocupa todo el ancho */
+  .main-content {
+    margin-left: 0;
+    padding-top: 56px; /* espacio para el topbar */
+  }
+
+  /* Mostrar topbar móvil */
+  .mobile-topbar {
+    display: flex;
+  }
 }
 </style>
