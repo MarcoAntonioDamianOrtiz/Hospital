@@ -45,18 +45,21 @@
  *
  * Constante de tiempo del sistema: tau = 1/alpha = 1/(mu + 2*gamma*P_eq/C)
  *
- * METODO NUMERICO: Runge-Kutta de 4to orden (RK4)
+ * METODO NUMERICO: Euler Mejorado (Metodo de Heun)
  * ------------------------------------------------
- * Para integrar la ODE no lineal completa:
+ * Para integrar la ODE no lineal completa se usa el metodo
+ * predictor-corrector de Heun, identico al utilizado en los
+ * ejercicios de clase:
  *
- *   k1 = h * f(t,       P)
- *   k2 = h * f(t + h/2, P + k1/2)
- *   k3 = h * f(t + h/2, P + k2/2)
- *   k4 = h * f(t + h,   P + k3)
+ *   PASO 1 - Predictor (Euler simple):
+ *     y* = P(t) + h * f(t, P(t))
  *
- *   P(t+h) = P(t) + (k1 + 2*k2 + 2*k3 + k4) / 6
+ *   PASO 2 - Corrector (promedio de pendientes):
+ *     P(t+h) = P(t) + (h/2) * [f(t, P(t)) + f(t+h, y*)]
  *
- * Error local O(h^5), error global O(h^4)
+ *   yk+1 = yk + (h/2) * [f(xk, yk) + f(xk+1, y*)]
+ *
+ * Error local O(h^3), error global O(h^2)
  * ============================================================
  */
 
@@ -99,8 +102,8 @@ const DEFAULT_CAPACITY = 200;
 const HOURS_PER_DAY = 24;
 // Factor de no linealidad tipo Bernoulli (gamma)
 const NONLINEAR_FACTOR = 0.15;
-// Paso de integracion RK4 en horas
-const RK4_STEP = 0.5;
+// Paso de integracion en horas
+const EULER_STEP = 0.5;
 
 /**
  * ODE del sistema: f(t, P) = lambda - mu*P - gamma*P^2/C
@@ -119,10 +122,13 @@ function systemODE(
 }
 
 /**
- * Un paso de integracion RK4.
- * Combina cuatro estimaciones de la pendiente para mayor precision.
+ * Un paso de Euler Mejorado (Metodo de Heun).
+ *
+ * Igual al metodo de clase:
+ *   yk+1 = yk + (h/2) * [f(xk, yk) + f(xk+1, y*)]
+ * donde y* = yk + h * f(xk, yk)  (predictor Euler simple)
  */
-function rk4Step(
+function eulerMejoradoStep(
   t: number,
   P: number,
   h: number,
@@ -130,11 +136,14 @@ function rk4Step(
   mu: number,
   capacity: number
 ): number {
-  const k1 = h * systemODE(t,       P,           lambda, mu, capacity);
-  const k2 = h * systemODE(t + h/2, P + k1/2,   lambda, mu, capacity);
-  const k3 = h * systemODE(t + h/2, P + k2/2,   lambda, mu, capacity);
-  const k4 = h * systemODE(t + h,   P + k3,     lambda, mu, capacity);
-  return P + (k1 + 2*k2 + 2*k3 + k4) / 6;
+  // Pendiente en el punto actual
+  const fk = systemODE(t, P, lambda, mu, capacity);
+  // Predictor: Euler simple
+  const y_pred = P + h * fk;
+  // Pendiente en el punto predicho
+  const f_pred = systemODE(t + h, y_pred, lambda, mu, capacity);
+  // Corrector: promedio de las dos pendientes
+  return P + (h / 2) * (fk + f_pred);
 }
 
 /** Clasifica el estado segun el porcentaje de ocupacion */
@@ -178,7 +187,9 @@ function generateAlert(
 /**
  * Funcion principal de simulacion.
  * Convierte los inputs del usuario en parametros del modelo y
- * ejecuta la integracion RK4 para el horizonte solicitado.
+ * ejecuta la integracion por Euler Mejorado (Heun) para el
+ * horizonte solicitado. La solucion analitica via Laplace se
+ * usa unicamente para calcular la constante de tiempo tau.
  *
  * @param params       Parametros del usuario
  * @param horizonHours Horizonte de simulacion en horas (0, 24, 48, 72)
@@ -217,7 +228,7 @@ export function runSimulation(
     };
   }
 
-  // Integracion RK4 para el horizonte completo
+  // Integracion por Euler Mejorado para el horizonte completo
   const points: SimulationPoint[] = [];
   let P = Math.max(0, params.currentPatients);
   let t = 0;
@@ -239,8 +250,8 @@ export function runSimulation(
   let nextRecord = recordInterval;
 
   while (t < horizonHours) {
-    const h = Math.min(RK4_STEP, horizonHours - t);
-    P = rk4Step(t, P, h, lambda, mu, capacity);
+    const h = Math.min(EULER_STEP, horizonHours - t);
+    P = eulerMejoradoStep(t, P, h, lambda, mu, capacity);
     // Limites fisicos: no negativo, no mas de 110% de capacidad
     P = Math.max(0, Math.min(P, capacity * 1.1));
     t += h;
