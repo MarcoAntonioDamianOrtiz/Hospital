@@ -1,7 +1,7 @@
 <template>
   <div class="user-view">
     <header class="page-header">
-      <div>
+      <div class="page-header-text">
         <h1 class="page-title">Consulta de Hospitales</h1>
         <p class="page-sub">Busca disponibilidad en tiempo real y simula ocupación</p>
       </div>
@@ -15,21 +15,23 @@
 
     <!-- Filtros rápidos -->
     <div class="filters-row">
-      <button
-        v-for="f in filters"
-        :key="f.value"
-        class="filter-btn"
-        :class="{ active: activeFilter === f.value }"
-        @click="activeFilter = f.value"
-      >
-        <span class="filter-dot" :style="{ background: f.color }"></span>
-        {{ f.label }}
-      </button>
+      <div class="filters-scroll">
+        <button
+          v-for="f in filters"
+          :key="f.value"
+          class="filter-btn"
+          :class="{ active: activeFilter === f.value }"
+          @click="activeFilter = f.value"
+        >
+          <span class="filter-dot" :style="{ background: f.color }"></span>
+          {{ f.label }}
+        </button>
+      </div>
       <div class="filter-sort">
-        <span class="label">Ordenar:</span>
+        <span class="label sort-label">Ordenar:</span>
         <select v-model="sortBy" class="sort-select">
-          <option value="occupancy-asc">Menor ocupación primero</option>
-          <option value="occupancy-desc">Mayor ocupación primero</option>
+          <option value="occupancy-asc">Menor ocupación</option>
+          <option value="occupancy-desc">Mayor ocupación</option>
           <option value="capacity">Mayor capacidad</option>
           <option value="name">Nombre A-Z</option>
         </select>
@@ -133,7 +135,7 @@
               </svg>
             </div>
             <div>
-              <h3 class="sim-title">Simulación: {{ selectedHospital.name }}</h3>
+              <h3 class="sim-title">{{ selectedHospital.name }}</h3>
               <p class="sim-meta">Datos preconfigurados por el administrador</p>
             </div>
           </div>
@@ -302,8 +304,10 @@ function runSim(h: number) {
 </script>
 
 <style scoped>
+/* ── Base ────────────────────────────────────────────────── */
 .user-view { padding: 2rem; }
 
+/* ── Header ───────────────────────────────────────────────── */
 .page-header {
   display: flex; justify-content: space-between; align-items: flex-start;
   margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap;
@@ -326,17 +330,23 @@ function runSim(h: number) {
 .search-input:focus { border-color: var(--accent); }
 .search-input::placeholder { color: var(--text-muted); }
 
+/* ── Filtros ──────────────────────────────────────────────── */
 .filters-row {
-  display: flex; align-items: center; gap: 0.5rem;
+  display: flex; align-items: center; gap: 0.75rem;
   flex-wrap: wrap; margin-bottom: 1.25rem;
 }
+
+.filters-scroll {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+}
+
 .filter-btn {
   display: flex; align-items: center; gap: 0.35rem;
   padding: 0.35rem 0.8rem;
   background: var(--bg-surface); border: 1px solid var(--border);
   border-radius: 100px; color: var(--text-secondary);
   font-size: 0.78rem; font-family: var(--font-body); cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s; white-space: nowrap;
 }
 .filter-btn:hover { border-color: var(--border-strong); }
 .filter-btn.active {
@@ -345,8 +355,8 @@ function runSim(h: number) {
 }
 .filter-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-.filter-sort { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
-.filter-sort .label { white-space: nowrap; }
+.filter-sort { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+.sort-label { white-space: nowrap; }
 .sort-select {
   padding: 0.3rem 0.6rem;
   background: var(--bg-surface); border: 1px solid var(--border);
@@ -354,6 +364,7 @@ function runSim(h: number) {
   font-size: 0.78rem; outline: none; cursor: pointer;
 }
 
+/* ── Recomendación ────────────────────────────────────────── */
 .recommendation-banner {
   display: flex; align-items: center; gap: 1rem;
   padding: 0.85rem 1.2rem; margin-bottom: 1.25rem;
@@ -376,9 +387,11 @@ function runSim(h: number) {
   border: 1px solid rgba(16,185,129,0.35); border-radius: var(--radius-sm);
   color: var(--status-normal); font-size: 0.8rem; font-weight: 600;
   font-family: var(--font-body); cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
 }
 .btn-go-best:hover { background: rgba(16,185,129,0.25); }
 
+/* ── Grid hospitales ─────────────────────────────────────── */
 .hospitals-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1rem; margin-bottom: 1.5rem;
@@ -424,23 +437,27 @@ function runSim(h: number) {
 .select-hint { font-size: 0.7rem; color: var(--text-muted); }
 .selected-hint { font-size: 0.7rem; color: var(--accent); font-weight: 600; }
 
+/* ── Panel Simulación ────────────────────────────────────── */
 .sim-panel { margin-bottom: 1.5rem; padding: 0; overflow: hidden; }
 
 .sim-header {
   display: flex; justify-content: space-between; align-items: flex-start;
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border);
-  flex-wrap: wrap; gap: 1rem;
+  flex-wrap: wrap; gap: 0.75rem;
 }
-.sim-hosp-info { display: flex; align-items: center; gap: 0.75rem; }
+.sim-hosp-info { display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
 .sim-pin {
   width: 30px; height: 30px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   color: white; flex-shrink: 0;
 }
-.sim-title { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
+.sim-title {
+  font-size: 0.9rem; font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .sim-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem; }
 
-.sim-horizons { display: flex; gap: 0.35rem; }
+.sim-horizons { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .h-btn {
   padding: 0.35rem 0.75rem; background: var(--bg-input);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -462,4 +479,135 @@ function runSim(h: number) {
 .metric-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem; }
 
 .chart-wrap-sim { height: 250px; }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Tablet (768px - 1023px) ─────────────────────────────── */
+@media (max-width: 1023px) {
+  .user-view { padding: 1.5rem; }
+
+  /* Hospitales: mínimo 220px */
+  .hospitals-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  /* Sim metrics: 2 columnas */
+  .sim-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Etiqueta "Ordenar:" oculta en tablet */
+  .sort-label { display: none; }
+}
+
+/* ── Mobile (< 768px) ────────────────────────────────────── */
+@media (max-width: 767px) {
+  .user-view { padding: 1rem; }
+
+  /* Header: apilar verticalmente */
+  .page-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .page-title { font-size: 1.2rem; }
+  .page-sub   { font-size: 0.8rem; }
+
+  /* Buscador: ancho completo */
+  .search-bar-wrap {
+    width: 100%;
+    min-width: unset;
+  }
+
+  /* Filtros: scroll horizontal en lugar de wrap */
+  .filters-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .filters-scroll {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .filters-scroll::-webkit-scrollbar { display: none; }
+
+  .filter-sort {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .sort-label { display: none; }
+  .sort-select { flex: 1; font-size: 0.8rem; }
+
+  /* Hospital grid: 1 columna */
+  .hospitals-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  /* Recomendación: compacta */
+  .recommendation-banner {
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+  }
+  .rec-title { font-size: 0.85rem; }
+  .rec-meta  { font-size: 0.7rem; }
+  .btn-go-best { font-size: 0.75rem; padding: 0.35rem 0.75rem; }
+
+  /* Sim header: apilar */
+  .sim-header {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+  .sim-title { font-size: 0.85rem; }
+
+  /* Horizons: ancho completo */
+  .sim-horizons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.35rem;
+  }
+  .h-btn { text-align: center; padding: 0.4rem 0.3rem; font-size: 0.75rem; }
+
+  /* Sim metrics: 2 columnas */
+  .sim-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+  .sim-metric { padding: 0.75rem; }
+  .big-val { font-size: 1.5rem; }
+
+  /* Sim body */
+  .sim-body { padding: 1rem; }
+
+  /* Chart: menos alto en móvil */
+  .chart-wrap-sim { height: 210px; }
+}
+
+/* ── Muy pequeño (< 480px) ───────────────────────────────── */
+@media (max-width: 479px) {
+  /* Sim metrics: 1 columna en pantallas muy pequeñas */
+  .sim-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Ring más pequeño */
+  .occ-ring-wrap { width: 48px; height: 48px; }
+  .occ-ring-wrap svg { width: 48px; height: 48px; }
+  .occ-pct { font-size: 0.75rem; }
+
+  .hosp-card-name { font-size: 0.82rem; }
+
+  .page-title { font-size: 1.1rem; }
+}
 </style>

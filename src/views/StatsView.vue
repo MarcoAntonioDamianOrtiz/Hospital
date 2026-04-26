@@ -51,14 +51,14 @@
             <polyline points="1 4 1 10 7 10"/>
             <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
           </svg>
-          {{ isLoading ? 'Cargando...' : 'Sincronizar nube' }}
+          <span class="btn-refresh-text">{{ isLoading ? 'Cargando...' : 'Sincronizar' }}</span>
         </button>
         <div class="cloud-badge" :class="{ online: isFirebaseEnabled }">
           <span class="cloud-dot"></span>
-          {{ isFirebaseEnabled ? 'Firebase conectado' : 'Solo memoria' }}
+          <span class="cloud-badge-text">{{ isFirebaseEnabled ? 'Firebase conectado' : 'Solo memoria' }}</span>
         </div>
         <button v-if="history.length" class="btn-clear" @click="clearHistory">
-          Limpiar todo
+          Limpiar
         </button>
       </div>
     </header>
@@ -125,7 +125,7 @@
           <h3 class="section-title" style="margin:0">Registro de simulaciones</h3>
           <div class="table-meta">
             <span class="label">
-              Mostrando {{ paginatedHistory.length }} de {{ history.length }} registros
+              {{ paginatedHistory.length }} de {{ history.length }} registros
             </span>
           </div>
         </div>
@@ -135,15 +135,15 @@
             <thead>
               <tr>
                 <th>Fecha / Hora</th>
-                <th>Hospital</th>
+                <th class="col-hospital">Hospital</th>
                 <th>Horizonte</th>
-                <th>Pacientes</th>
-                <th>Ing./día</th>
-                <th>Altas/día</th>
+                <th class="col-num">Pacientes</th>
+                <th class="col-num">Ing./día</th>
+                <th class="col-num">Altas/día</th>
                 <th>Ocup. final</th>
-                <th>Pico</th>
+                <th class="col-peak">Pico</th>
                 <th>Estado</th>
-                <th v-if="isFirebaseEnabled">Fuente</th>
+                <th v-if="isFirebaseEnabled" class="col-source">Fuente</th>
                 <th class="th-actions">Acciones</th>
               </tr>
             </thead>
@@ -154,7 +154,7 @@
                 :class="{ 'row-deleting': deletingId === entry.id }"
               >
                 <td class="mono text-muted">{{ entry.timestamp }}</td>
-                <td>
+                <td class="col-hospital">
                   <span v-if="entry.hospitalName" class="hosp-tag">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 6.9 8 11.7z"/>
@@ -164,13 +164,13 @@
                   <span v-else class="text-muted" style="font-size:0.75rem">—</span>
                 </td>
                 <td class="mono text-accent">{{ entry.horizon }}</td>
-                <td class="mono">{{ entry.patients }}</td>
-                <td class="mono">{{ entry.admissions }}</td>
-                <td class="mono">{{ entry.discharges }}</td>
+                <td class="mono col-num">{{ entry.patients }}</td>
+                <td class="mono col-num">{{ entry.admissions }}</td>
+                <td class="mono col-num">{{ entry.discharges }}</td>
                 <td class="mono">{{ entry.finalOccupancy.toFixed(1) }}%</td>
-                <td class="mono">{{ entry.peakOccupancy.toFixed(1) }}%</td>
+                <td class="mono col-peak">{{ entry.peakOccupancy.toFixed(1) }}%</td>
                 <td><StatusBadge :status="entry.status" /></td>
-                <td v-if="isFirebaseEnabled">
+                <td v-if="isFirebaseEnabled" class="col-source">
                   <span class="source-tag" :class="entry.firestoreId ? 'cloud' : 'local'">
                     {{ entry.firestoreId ? '☁ Nube' : '💾 Local' }}
                   </span>
@@ -256,14 +256,12 @@ const paginatedHistory = computed(() => {
   return history.value.slice(start, start + pageSize)
 })
 
-// Volver a página 1 si el historial cambia y la página actual queda vacía
 watch(() => history.value.length, () => {
   if (currentPage.value > totalPages.value && totalPages.value > 0) {
     currentPage.value = totalPages.value
   }
 })
 
-// Números de página con elipsis
 const pageNumbers = computed((): (number | string)[] => {
   const total = totalPages.value
   const cur = currentPage.value
@@ -278,7 +276,6 @@ const pageNumbers = computed((): (number | string)[] => {
   return pages
 })
 
-// Delete flow
 function askDelete(entry: HistoryEntry) {
   confirmEntry.value = entry
 }
@@ -291,7 +288,6 @@ async function doDelete() {
   deletingId.value = null
 }
 
-// Trend
 const trendLabel = computed(() => {
   if (trend.value === 'subiendo') return 'Subiendo'
   if (trend.value === 'bajando') return 'Bajando'
@@ -328,7 +324,6 @@ onMounted(async () => {
   }
 })
 
-// Chart
 const historyChartData = computed(() => {
   const items = [...history.value].reverse().slice(-20)
   return {
@@ -371,7 +366,7 @@ const historyChartOptions = {
 <style scoped>
 .stats-page { padding: 2rem; }
 
-/* Modal */
+/* ── Modal ────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 300;
   background: rgba(10,15,30,0.85); backdrop-filter: blur(6px);
@@ -414,10 +409,10 @@ const historyChartOptions = {
 }
 .btn-delete-confirm:hover { background: rgba(239,68,68,0.25); }
 
-/* Header */
+/* ── Header ───────────────────────────────────────────────── */
 .page-header {
   display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 2rem;
+  margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;
 }
 .page-title { font-size: 1.5rem; font-weight: 700; }
 .page-sub { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.2rem; }
@@ -441,7 +436,7 @@ const historyChartOptions = {
   font-size: 0.72rem; color: var(--text-muted);
 }
 .cloud-badge.online { color: var(--status-normal); border-color: rgba(16,185,129,0.3); }
-.cloud-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); }
+.cloud-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
 .cloud-badge.online .cloud-dot { background: var(--status-normal); box-shadow: 0 0 4px var(--status-normal); }
 
 .btn-clear {
@@ -451,6 +446,7 @@ const historyChartOptions = {
 }
 .btn-clear:hover { border-color: #ef4444; color: #ef4444; }
 
+/* ── Empty / Loading ─────────────────────────────────────── */
 .empty-state, .loading-state {
   display: flex; flex-direction: column; align-items: center; gap: 1rem;
   padding: 4rem; text-align: center; color: var(--text-muted);
@@ -461,6 +457,7 @@ const historyChartOptions = {
   animation: spin 0.8s linear infinite;
 }
 
+/* ── Summary grid ────────────────────────────────────────── */
 .summary-grid {
   display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 1rem; margin-bottom: 1.5rem;
@@ -481,24 +478,26 @@ const historyChartOptions = {
 .dist-bar { height: 100%; border-radius: 3px; transition: width 0.5s; }
 .dist-count { width: 20px; text-align: right; color: var(--text-muted); font-size: 0.72rem; }
 
+/* ── Chart ───────────────────────────────────────────────── */
 .chart-section { margin-bottom: 1.5rem; }
 .section-title { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 1rem; }
 .chart-wrap { height: 220px; }
 
-/* Table */
+/* ── Table ───────────────────────────────────────────────── */
 .table-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;
 }
 .table-meta { font-size: 0.72rem; color: var(--text-muted); }
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-.history-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.history-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 640px; }
 .history-table th {
   text-align: left; padding: 0.6rem 0.75rem;
   color: var(--text-muted); font-size: 0.7rem; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 .history-table td {
   padding: 0.6rem 0.75rem;
@@ -533,7 +532,7 @@ const historyChartOptions = {
 .source-tag.cloud { background: rgba(16,185,129,0.1); color: #10b981; }
 .source-tag.local { background: rgba(148,163,184,0.1); color: var(--text-muted); }
 
-/* Paginador */
+/* ── Paginador ───────────────────────────────────────────── */
 .paginator {
   display: flex; align-items: center; justify-content: center;
   gap: 0.35rem; padding-top: 1.25rem; border-top: 1px solid var(--border);
@@ -565,4 +564,102 @@ const historyChartOptions = {
 .page-num.ellipsis { cursor: default; border-color: transparent; background: transparent; }
 
 .page-info { margin-left: 0.5rem; }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Tablet (768px - 1023px) ─────────────────────────────── */
+@media (max-width: 1023px) {
+  .stats-page { padding: 1.5rem; }
+
+  /* Summary: 2 columnas */
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Tabla: ocultar columnas menos críticas */
+  .col-num { display: none; }
+
+  /* Cloud badge: texto abreviado */
+  .cloud-badge-text { display: none; }
+}
+
+/* ── Mobile (< 768px) ────────────────────────────────────── */
+@media (max-width: 767px) {
+  .stats-page { padding: 1rem; }
+
+  /* Header */
+  .page-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .page-title { font-size: 1.2rem; }
+  .page-sub   { font-size: 0.8rem; }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  /* Botón refresh: solo icono */
+  .btn-refresh-text { display: none; }
+  .btn-refresh { padding: 0.4rem 0.6rem; }
+
+  /* Cloud badge: solo punto */
+  .cloud-badge-text { display: none; }
+  .cloud-badge { padding: 0.35rem 0.55rem; }
+
+  /* Summary: 1 columna */
+  .summary-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .big-num { font-size: 1.75rem; }
+
+  /* Chart: menos alto */
+  .chart-wrap { height: 180px; }
+
+  /* Tabla: ocultar más columnas para caber en móvil */
+  .col-num    { display: none; }
+  .col-peak   { display: none; }
+  .col-source { display: none; }
+  .col-hospital { max-width: 100px; }
+  .hosp-tag { font-size: 0.7rem; }
+
+  /* Table: texto más pequeño */
+  .history-table { font-size: 0.75rem; min-width: 480px; }
+  .history-table th,
+  .history-table td { padding: 0.5rem 0.5rem; }
+
+  /* Paginador: compacto */
+  .paginator { gap: 0.25rem; padding-top: 1rem; }
+  .page-num  { min-width: 28px; height: 28px; font-size: 0.75rem; }
+  .page-info { display: none; }
+
+  /* Modal: más compacto */
+  .modal-card { padding: 1.5rem 1.25rem; }
+  .modal-actions { flex-direction: column; }
+  .btn-cancel,
+  .btn-delete-confirm { width: 100%; justify-content: center; }
+
+  /* Empty state */
+  .empty-state { padding: 2.5rem 1rem; font-size: 0.875rem; }
+}
+
+/* ── Muy pequeño (< 480px) ───────────────────────────────── */
+@media (max-width: 479px) {
+  .history-table { min-width: 380px; }
+  .history-table th,
+  .history-table td { padding: 0.45rem 0.4rem; }
+
+  /* Solo columnas esenciales */
+  .col-hospital { display: none; }
+
+  /* Summary: números más pequeños */
+  .big-num { font-size: 1.5rem; }
+}
 </style>

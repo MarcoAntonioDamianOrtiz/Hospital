@@ -96,7 +96,7 @@
                         stroke-width="2.5">
                         <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    {{ selectedHospital ? `Usar datos de ${selectedHospital.name}` : 'Selecciona un hospital' }}
+                    {{ selectedHospital ? `Usar ${selectedHospital.name}` : 'Selecciona un hospital' }}
                 </button>
             </div>
         </div>
@@ -235,17 +235,20 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
 </script>
 
 <style scoped>
+/* ── Panel base ───────────────────────────────────────────── */
 .map-panel {
     padding: 0;
     overflow: hidden;
 }
 
+/* ── Header ───────────────────────────────────────────────── */
 .map-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .panel-title {
@@ -272,23 +275,28 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
     flex-shrink: 0;
     margin-top: 2px;
 }
-
 .btn-close:hover {
     border-color: #ef4444;
     color: #ef4444;
 }
 
+/* ── Body: mapa + lista lado a lado (desktop) ─────────────── */
 .map-body {
     display: grid;
     grid-template-columns: 1fr 300px;
+    /* altura fija en desktop */
     height: 480px;
+    overflow: hidden;
 }
 
+/* ── Contenedor del mapa ─────────────────────────────────── */
 .map-container {
     position: relative;
     background: #0a0f1e;
     border-right: 1px solid var(--border);
     overflow: hidden;
+    /* altura mínima para que el mapa se renderice bien */
+    min-height: 200px;
 }
 
 .mapbox-map {
@@ -296,6 +304,7 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
     height: 100%;
 }
 
+/* ── Fallback sin token ──────────────────────────────────── */
 .map-fallback {
     position: absolute;
     inset: 0;
@@ -338,6 +347,7 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
     font-family: var(--font-mono);
 }
 
+/* ── Leyenda ─────────────────────────────────────────────── */
 .map-legend {
     position: absolute;
     bottom: 12px;
@@ -367,17 +377,20 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
     flex-shrink: 0;
 }
 
+/* ── Lista de hospitales ─────────────────────────────────── */
 .hospital-list {
     display: flex;
     flex-direction: column;
     background: var(--bg-surface);
     overflow: hidden;
+    min-height: 0;
 }
 
 .search-wrap {
     position: relative;
     padding: 0.75rem;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .search-icon {
@@ -400,19 +413,14 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
     font-size: 0.8rem;
     outline: none;
 }
-
-.search-input:focus {
-    border-color: var(--accent);
-}
-
-.search-input::placeholder {
-    color: var(--text-muted);
-}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-muted); }
 
 .list-items {
     flex: 1;
     overflow-y: auto;
     padding: 0.5rem;
+    -webkit-overflow-scrolling: touch;
 }
 
 .hospital-item {
@@ -426,12 +434,10 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
     transition: all 0.15s;
     margin-bottom: 0.3rem;
 }
-
 .hospital-item:hover {
     background: var(--bg-card);
     border-color: var(--border);
 }
-
 .hospital-item.selected {
     background: var(--accent-glow);
     border-color: rgba(59, 130, 246, 0.4);
@@ -508,6 +514,7 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
 
 .btn-confirm {
     margin: 0.75rem;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -523,17 +530,128 @@ onUnmounted(() => { if (mapInstance) mapInstance.remove() })
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 4px 16px var(--accent-glow);
+    /* truncar texto largo */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-
-.btn-confirm:hover:not(:disabled) {
-    background: #2563eb;
-}
-
+.btn-confirm:hover:not(:disabled) { background: #2563eb; }
 .btn-confirm:disabled {
     background: var(--bg-card);
     color: var(--text-muted);
     box-shadow: none;
     cursor: default;
     border: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Tablet (768px - 1023px) ─────────────────────────────── */
+@media (max-width: 1023px) {
+    /* Lista un poco más estrecha */
+    .map-body {
+        grid-template-columns: 1fr 260px;
+        height: 460px;
+    }
+
+    /* Leyenda horizontal para ganar espacio vertical */
+    .map-legend {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.4rem 0.75rem;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        padding: 0.4rem 0.6rem;
+    }
+}
+
+/* ── Mobile (< 768px) ────────────────────────────────────── */
+@media (max-width: 767px) {
+    /* Header: sub-texto oculto para ahorrar espacio */
+    .map-header {
+        padding: 1rem 1.1rem;
+    }
+    .map-sub { display: none; }
+
+    /* Body: mapa arriba, lista abajo (columna única) */
+    .map-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: 220px 1fr;
+        height: auto;
+        /* altura total controlada por el modal en DashboardView */
+        max-height: calc(90vh - 60px);
+        overflow: hidden;
+    }
+
+    /* Mapa: altura fija para que sea usable */
+    .map-container {
+        height: 220px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* Lista: ocupa el resto del espacio disponible */
+    .hospital-list {
+        height: 0;        /* necesario para que flex: 1 funcione dentro del grid */
+        min-height: 280px;
+        overflow: hidden;
+    }
+
+    /* Leyenda: horizontal compacta en móvil */
+    .map-legend {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.3rem 0.6rem;
+        bottom: 6px;
+        left: 6px;
+        right: 6px;
+        padding: 0.35rem 0.5rem;
+        font-size: 0.65rem;
+    }
+    .legend-dot { width: 6px; height: 6px; }
+
+    /* Fallback: más compacto */
+    .fallback-inner {
+        padding: 1.25rem 1rem;
+        gap: 0.4rem;
+    }
+    .fallback-title { font-size: 0.85rem; }
+    .fallback-sub   { font-size: 0.72rem; }
+    .code-block     { font-size: 0.68rem; }
+
+    /* Items de hospital: padding reducido */
+    .hospital-item { padding: 0.6rem; }
+    .hosp-name { font-size: 0.78rem; }
+
+    /* Botón confirmar */
+    .btn-confirm {
+        margin: 0.5rem 0.6rem;
+        font-size: 0.78rem;
+        padding: 0.55rem 0.75rem;
+    }
+
+    /* Buscador */
+    .search-wrap { padding: 0.6rem; }
+    .search-input { font-size: 0.78rem; padding: 0.45rem 0.75rem 0.45rem 2rem; }
+}
+
+/* ── Muy pequeño (< 480px) ───────────────────────────────── */
+@media (max-width: 479px) {
+    .map-body {
+        grid-template-rows: 180px 1fr;
+    }
+
+    .map-container { height: 180px; }
+
+    .hospital-list { min-height: 240px; }
+
+    /* Leyenda: ocultar en pantallas muy pequeñas (el mapa es suficientemente pequeño) */
+    .map-legend { display: none; }
+
+    .map-header { padding: 0.85rem 1rem; }
+    .panel-title { font-size: 0.85rem; }
 }
 </style>
