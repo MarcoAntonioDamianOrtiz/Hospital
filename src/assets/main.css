@@ -110,3 +110,13 @@ body {
     border-radius: var(--radius-sm);
   }
 }
+.hospital-card {
+  display: block;   /* evita colapso del contenedor */
+  color: inherit;   /* hereda colores del tema */
+}
+.occ-bar-wrap {
+  overflow: hidden; /* recorta la barra al ancho real */
+}
+.occ-bar-fill {
+  max-width: 100%;  /* segunda línea de defensa */
+}
